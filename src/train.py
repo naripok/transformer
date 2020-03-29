@@ -10,7 +10,7 @@ if __name__ == "__main__":
     LOAD_MODEL = True
     TRAIN_TOKENIZER = False
     TRAIN_MODEL = True
-    DOWNLOAD_DATA = False
+    DOWNLOAD_DATA = True
     NUM_EPOCHS = 200
     NUM_POSTS = 100
     NUM_COMMENTS = 20
@@ -43,8 +43,12 @@ if __name__ == "__main__":
 
     else:
         logging.info('Loading data from disk.')
-        with open(data_path, 'r') as f:
-            data = json.load(f)
+        try:
+            with open(data_path, 'r') as f:
+                data = json.load(f)
+        except FileNotFoundError as e:
+            logging.info('No data found on disk. You need to download the data first.')
+            raise
 
     logging.info(f'N samples: {len(data)}')
 

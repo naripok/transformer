@@ -1,5 +1,4 @@
 import logging
-from tqdm import tqdm
 from .model import make_dataset, make_model, \
         load_model, predict, train, make_tokenizer
 import random as rd
