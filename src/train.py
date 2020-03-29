@@ -10,7 +10,7 @@ if __name__ == "__main__":
     LOAD_MODEL = True
     TRAIN_TOKENIZER = False
     TRAIN_MODEL = True
-    DOWNLOAD_DATA = True
+    DOWNLOAD_DATA = False
     NUM_EPOCHS = 200
     NUM_POSTS = 100
     NUM_COMMENTS = 20
