@@ -14,11 +14,13 @@ tf.random.set_seed(1234)
 import os
 import logging
 import datetime
+import pickle
 
 logging.basicConfig(level=logging.INFO)
 
 # tokenizer params
 TARGET_VOCAB_SIZE = 2**14
+MAX_SUBWORD_LENGTH = 20
 
 # Training params
 MAX_LENGTH = 32
@@ -41,10 +43,9 @@ UNITS = 512
 DROPOUT = 0.1
 
 
-model_path = "./saved_model_kaggle"
-assets_dir = model_path + '/assets'
-tokenizer_path = assets_dir + '/saved_tokenizer'
-log_dir = model_path + '/logs/fit/' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+model_dir = "./saved_model"
+tokenizer_path = model_dir + '/saved_tokenizer.pickle'
+log_dir = model_dir + '/logs/fit/' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
@@ -371,8 +372,11 @@ def accuracy(y_true, y_pred):
 def make_tokenizer(data):
     logging.info('Training tokenizer...')
 
-    tokenizer = SubwordTextEncoder.build_from_corpus(data,
-            target_vocab_size=TARGET_VOCAB_SIZE)
+    tokenizer = SubwordTextEncoder.build_from_corpus(
+            data,
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            max_subword_length=MAX_SUBWORD_LENGTH
+            )
 
     logging.info(f'Target Tokenizer vocab size: {TARGET_VOCAB_SIZE}')
     logging.info(f'Tokenizer vocab size: {tokenizer.vocab_size}')
@@ -380,10 +384,13 @@ def make_tokenizer(data):
     # save tokenizer
     logging.info('Saving tokenizer.')
 
-    if not os.path.exists(assets_dir):
-        os.makedirs(assets_dir)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
 
-    tokenizer.save_to_file(tokenizer_path)
+    with open(tokenizer_path, 'wb+') as f:
+        pickle.dump(tokenizer, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    #  tokenizer.save_to_file(tokenizer_path)
 
     logging.info('Done!')
 
@@ -438,6 +445,9 @@ def make_model(tokenizer):
 
     model.compile(optimizer=optimizer, loss=loss_function, metrics=[accuracy])
 
+    logging.info('Compiled model.')
+    logging.info(model.summary())
+
     return tokenizer, model
 
 
@@ -479,7 +489,7 @@ def train(tokenizer, model, data, epochs=EPOCHS, min_delta=MIN_DELTA, patience=P
 
     finally:
         logging.info('Saving model.')
-        model.save(model_path)
+        model.save(model_dir)
 
     return tokenizer, model
 
@@ -522,17 +532,25 @@ def learn_step(in_data, out_data, model):
 
 
 def load_model():
+    logging.info('Loading tokenizer.')
+
+    with open(tokenizer_path, 'rb') as f:
+        tokenizer = pickle.load(f)
+    #  tokenizer = SubwordTextEncoder.load_from_file(tokenizer_path)
+
+    logging.info(f'Tokenizer vocab size: {tokenizer.vocab_size}.')
+
     logging.info('Loading model.')
     model = tf.keras.models.load_model(
-            model_path,
+            model_dir,
             custom_objects={
                 'CustomSchedule': CustomSchedule,
                 'loss_function': loss_function
                 }
             )
 
-    logging.info('Loading tokenizer.')
-    tokenizer = SubwordTextEncoder.load_from_file(tokenizer_path)
+    logging.info('Loaded model.')
+    logging.info(model.summary())
 
     logging.info('Done!')
     return tokenizer, model

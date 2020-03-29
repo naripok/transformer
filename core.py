@@ -1,5 +1,5 @@
-from tqdm import tqdm
 import logging
+from tqdm import tqdm
 from .model import make_dataset, make_model, \
         load_model, predict, train, make_tokenizer
 import random as rd
@@ -48,35 +48,3 @@ class ChatBot(object):
             return self.tokenizer.sequence_to_text(
                     [i for i in range(num_samples)]
                     )
-
-
-if __name__ == '__main__':
-    from .model import load_conversations
-
-    LOAD_MODEL = True
-    TRAIN_TOKENIZER = False
-    TRAIN_MODEL = True
-    MAX_SAMPLES = 50000
-
-    bot = ChatBot('bot', load=LOAD_MODEL)
-
-    inputs, outputs = load_conversations(MAX_SAMPLES)
-    data = []
-    for x, y in zip(inputs, outputs):
-        data += [x, y]
-
-    logging.info(f'N samples: {len(data)}')
-
-    if TRAIN_TOKENIZER and not LOAD_MODEL:
-        bot.train_tokenizer(data)
-
-    if TRAIN_MODEL:
-        bot.train(data, epochs=10)
-
-    # feed the model with its previous output
-    sentence = 'I am not crazy, my mother had me tested.'
-    print(sentence)
-
-    for _ in range(10):
-        sentence = bot.get_response(sentence)
-        print(sentence)
