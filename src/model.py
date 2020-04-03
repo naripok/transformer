@@ -27,23 +27,30 @@ if IS_COLAB:
 
 # %tensorflow_version 2.x
 
-
 import convokit
 from convokit import Corpus, download
 import nltk; nltk.download('punkt')
+
+import tensorflow as tf
+from tensorflow_datasets.core.features.text import SubwordTextEncoder
+
+tf.keras.backend.clear_session()
 
 import re
 import logging
 import pickle
 from tqdm import tqdm
-import tensorflow as tf
-from tensorflow_datasets.core.features.text import SubwordTextEncoder
 import pandas as pd
+import altair as alt
+import os
+import datetime
+
+alt.renderers.enable('altair_viewer')
+
 
 tf.random.set_seed(42)
 logging.basicConfig(level=logging.INFO)
 
-tf.keras.backend.clear_session()
 
 IS_TPU = False
 if IS_COLAB:
@@ -71,7 +78,7 @@ NEW_MODEL = True  #@param {type:"boolean"}
 TRAIN = True  #@param {type:"boolean"}
 
 # Training params
-EPOCHS = 30 #@param {type:"integer"}
+EPOCHS = 2 #@param {type:"integer"}
 if IS_TPU:
     BATCH_SIZE = 128 * tpu_strategy.num_replicas_in_sync
 else:
@@ -88,11 +95,11 @@ if not BASELINE:
 TARGET_VOCAB_SIZE = 2**13  #@param {type:"raw"}
 
 # Maximum number of samples to preprocess
-MAX_LENGTH = 64  #@param {type:"integer"}
-MAX_SAMPLES = 200000  #@param {type:"integer"}
+MAX_LENGTH = 32  #@param {type:"integer"}
+MAX_SAMPLES = 2000  #@param {type:"integer"}
 
 # Hyper-parameters
-NUM_LAYERS = 3  #@param {type:"integer"}
+NUM_LAYERS = 2  #@param {type:"integer"}
 D_MODEL = 64  #@param {type:"integer"}
 NUM_HEADS = 8  #@param {type:"integer"}
 UNITS = 128 #@param {type:"integer"}
@@ -101,9 +108,6 @@ DROPOUT = 0.1  #@param {type:"number"}
 #@title Save path {display-mode: "form"}
 
 # This code will be hidden when the notebook is loaded.
-
-import os
-import datetime
 
 model_path = "./saved_model"  #@param {type:"string"}
 model_weights_path = model_path + '/weights.h5'
@@ -634,7 +638,7 @@ def train(model, train_data, eval_data, epochs=10, min_delta=0.001,
           patience=10, baseline=None):
 
     # reset session
-    tf.keras.backend.clear_session()
+    #  tf.keras.backend.clear_session()
 
     def _train(*callbacks):
         # training callbacks
@@ -798,47 +802,25 @@ if __name__ == "__main__":
                                    eval_data, **train_opts)
 
     #@title Training History { vertical-output: true }
-    import altair as alt
 
     model.summary()
 
-    if history:
-        epochs = [i for i in range(len(history))]
-        hist_df = pd.DataFrame.from_records(history)
-        hist_df['epoch'] = epochs
+    hist_df = pd.DataFrame.from_records(history)
+    hist_df['epoch'] = [i for i in range(len(history))]
 
-        graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-        def make_graph(y):
-            return alt.Chart(hist_df).mark_point().encode(
-                x='epoch',
-                y=y,
-            ).properties(
-                width=160,
-                height=160
-            )
+    graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
+    def make_graph(y):
+        return alt.Chart(hist_df).mark_point().encode(
+            x='epoch',
+            y=y,
+        ).properties(
+            width=360,
+            height=360
+        )
 
-        alt.hconcat(*[make_graph(y) for y in graphs])
-
-    #@title Training History Compare { vertical-output: true }
-    model.summary()
-
-    if history:
-        epochs = [i for i in range(len(history))]
-        hist_df = pd.DataFrame.from_records(history)
-        hist_df['epoch'] = epochs
-
-        graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-        def make_graph(y):
-            return alt.Chart(hist_df).mark_point().encode(
-                x='epoch',
-                y=y,
-            ).properties(
-                width=160,
-                height=160
-            )
-
-        alt.hconcat(*[make_graph(y) for y in graphs])
+    alt.hconcat(*[make_graph(y) for y in graphs]).show()
 
     #@title Talk to the model { vertical-output: true }
     you = "what is your name?" #@param {type:"string"}
+    print(f'you: {you}')
     print(f'transformer: {predict(tokenizer, model, you, max_length=MAX_LENGTH)}')
