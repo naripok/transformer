@@ -158,7 +158,7 @@ def load_conversations(corpus_name, max_samples, eval_percent=0.1):
     corpus = Corpus(filename=download(corpus_name))
 
     deleted_filter = re.compile(r'^(\[deleted]|\[removed])$')
-    
+
     inputs, context, outputs = [], [], []
     for paths in corpus.iter_conversations():
         for path in paths.get_root_to_leaf_paths():
@@ -168,7 +168,7 @@ def load_conversations(corpus_name, max_samples, eval_percent=0.1):
                 or deleted_filter.match(path[i-1].text) \
                 or deleted_filter.match(path[i+1].text):
                     continue
-                
+
                 inputs.append(path[i].text)
                 context.append(path[i-1].text)
                 outputs.append(path[i+1].text)
@@ -582,7 +582,6 @@ def make_model(
     max_length=32,
     warmup_steps=4000):
 
-    
     logging.info('Compiling model.')
     learning_rate = CustomSchedule(d_model, warmup_steps)
 
@@ -713,7 +712,7 @@ def make_dataset(
 
 def train(model, train_data, eval_data, epochs=10, min_delta=0.001,
           patience=10, baseline=None):
-    
+
     # reset session
     tf.keras.backend.clear_session()
 
@@ -757,7 +756,7 @@ def train(model, train_data, eval_data, epochs=10, min_delta=0.001,
             model.save_weights(model_weights_path, overwrite=True)
 
         return model
-        
+
     history = []
     if IS_COLAB:
         with output.use_tags('train'):
@@ -950,14 +949,14 @@ if NEW_MODEL:
         'min_delta': MIN_DELTA,
         'baseline': BASELINE
     }
-    
+
     dataset_opts = {
         'batch_size': BATCH_SIZE,
         'buffer_size': BUFFER_SIZE,
         'max_length': MAX_LENGTH,
         'target_vocab_size': TARGET_VOCAB_SIZE
     }
-    
+
     model_opts = {
         'num_layers': NUM_LAYERS,
         'units': UNITS,
@@ -990,14 +989,14 @@ if NEW_MODEL:
         tokenizer,
         **dataset_opts
         )
-    
+
     model = make_model(tokenizer, **model_opts)
 
     if TRAIN_MODEL:
         model, history = train(model, train_data,
                                eval_data, **train_opts)
 else:
-    train_opts = load_obj(train_config_path) 
+    train_opts = load_obj(train_config_path)
     dataset_opts = load_obj(dataset_config_path)
     model_opts = load_obj(model_config_path)
 
@@ -1017,7 +1016,7 @@ else:
             eval_answers,
             tokenizer,
             **dataset_opts)
-        
+
         model, history = train(model, train_data,
                                eval_data, **train_opts)
 
