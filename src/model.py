@@ -29,7 +29,7 @@ if IS_COLAB:
 
 import convokit
 from convokit import Corpus, download
-import nltk; nltk.download('punkt')
+#  import nltk; nltk.download('punkt')
 
 import tensorflow as tf
 from tensorflow_datasets.core.features.text import SubwordTextEncoder
@@ -44,6 +44,7 @@ import pandas as pd
 import altair as alt
 import os
 import datetime
+from .beam_search import evaluate_beam, predict_beam
 
 alt.renderers.enable('altair_viewer')
 
@@ -74,8 +75,8 @@ logging.info('Done!')
 
 #@title Training Parameters { run: "auto", vertical-output: true, display-mode: "form" }
 
-NEW_MODEL = True  #@param {type:"boolean"}
-TRAIN = True  #@param {type:"boolean"}
+NEW_MODEL = False  #@param {type:"boolean"}
+TRAIN = False  #@param {type:"boolean"}
 
 # Training params
 EPOCHS = 2 #@param {type:"integer"}
@@ -463,7 +464,8 @@ def transformer(vocab_size,
         dropout=dropout,
     )(inputs=[dec_inputs, enc_outputs, look_ahead_mask, dec_padding_mask])
 
-    outputs = tf.keras.layers.Dense(units=vocab_size, name='outputs')(dec_outputs)
+    outputs = tf.keras.layers.Dense(units=vocab_size, name='outputs_dense')(dec_outputs)
+    outputs = tf.keras.layers.Softmax(axis=-1, name='outputs')(outputs)
 
     return tf.keras.Model(inputs=[inputs, dec_inputs], outputs=outputs, name=name)
 
@@ -473,7 +475,7 @@ def loss_function(max_length=32):
         y_true = tf.reshape(y_true, shape=(-1, max_length - 1))
 
         loss = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True, reduction='none')(y_true, y_pred)
+            from_logits=False, reduction='none')(y_true, y_pred)
 
         mask = tf.cast(tf.not_equal(y_true, 0), tf.float32)
         loss = tf.multiply(loss, mask)
@@ -704,7 +706,7 @@ def train(model, train_data, eval_data, epochs=10, min_delta=0.001,
     return model, history
 
 
-def evaluate(tokenizer, model, sentence, max_length, training=False):
+def evaluate_greedy(tokenizer, model, sentence, max_length, training=False):
     start_token, end_token = [tokenizer.vocab_size], [tokenizer.vocab_size + 1]
 
     sentence = preprocess_sentence(sentence)
@@ -729,10 +731,11 @@ def evaluate(tokenizer, model, sentence, max_length, training=False):
     return tf.squeeze(output, axis=0)
 
 
-def predict(tokenizer, model, sentence, max_length, training=False):
-    prediction = evaluate(tokenizer, model, sentence, max_length, training)
-    prediction = [i for i in prediction if i < tokenizer.vocab_size]
-    return tokenizer.decode(prediction)
+def predict_greedy(tokenizer, model, sentence, max_length, training=False):
+    predictions = evaluate_greedy(tokenizer, model, sentence, max_length, training=training)
+    sentence = [i for i in prediction[0] if i < tokenizer.vocab_size]
+    return tokenizer.decode(sentence)
+
 
 #@title Training Routine { vertical-output: true, display-mode: "form" }
 
@@ -763,9 +766,9 @@ if __name__ == "__main__":
         'warmup_steps': WARMUP_STEPS,
     }
 
-    train_questions, train_answers, eval_questions, eval_answers = load_conversations(MAX_SAMPLES)
 
     if NEW_MODEL:
+        train_questions, train_answers, eval_questions, eval_answers = load_conversations(MAX_SAMPLES)
         tokenizer, train_data = make_dataset(
             train_questions,
             train_answers,
@@ -787,6 +790,7 @@ if __name__ == "__main__":
         tokenizer, model = load_model(model_opts)
 
         if TRAIN:
+            train_questions, train_answers, eval_questions, eval_answers = load_conversations(MAX_SAMPLES)
             tokenizer, train_data = make_dataset(
                 train_questions,
                 train_answers,
@@ -803,24 +807,24 @@ if __name__ == "__main__":
 
     #@title Training History { vertical-output: true }
 
-    model.summary()
+            model.summary()
 
-    hist_df = pd.DataFrame.from_records(history)
-    hist_df['epoch'] = [i for i in range(len(history))]
+            hist_df = pd.DataFrame.from_records(history)
+            hist_df['epoch'] = [i for i in range(len(history))]
 
-    graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-    def make_graph(y):
-        return alt.Chart(hist_df).mark_point().encode(
-            x='epoch',
-            y=y,
-        ).properties(
-            width=360,
-            height=360
-        )
+            graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
+            def make_graph(y):
+                return alt.Chart(hist_df).mark_point().encode(
+                    x='epoch',
+                    y=y,
+                ).properties(
+                    width=360,
+                    height=360
+                )
 
-    alt.hconcat(*[make_graph(y) for y in graphs]).show()
+            alt.hconcat(*[make_graph(y) for y in graphs]).show()
 
     #@title Talk to the model { vertical-output: true }
     you = "what is your name?" #@param {type:"string"}
     print(f'you: {you}')
-    print(f'transformer: {predict(tokenizer, model, you, max_length=MAX_LENGTH)}')
+    print(f'transformer: {predict_beam(tokenizer, model, you)}')
