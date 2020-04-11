@@ -1,7 +1,7 @@
 import logging
 import tensorflow as tf
-from collections import deque
-from .preprocessing import preprocess_sentence
+from ..preprocessing import preprocess_sentence
+
 
 class Beam(object):
     def __init__(self, model, sentence, start_token, end_token, max_length=None, beam_size=2):
@@ -56,16 +56,13 @@ class Beam(object):
 
         choosen_leaves, choosen_scores = self.choose_leaf(self.leaves, self.l_scores)
 
-        while choosen_leaves and len(self.paths) < max_hypothesis:
+        while choosen_leaves:
             path, score = choosen_leaves.pop(), choosen_scores.pop()
 
             node_ids, node_r_scores = self.eval_path(path)
 
             semi_results, semi_r_scores = [], []
             for i in range(self.beam_size):
-
-                if len(self.paths) >= max_hypothesis:
-                    break
 
                 exp_path, exp_score = self.add_node(path, score, node_ids[:, :, i], node_r_scores[:, :, i])
 
@@ -85,8 +82,8 @@ class Beam(object):
 
         return results, r_scores
 
-    def expand(self, max_hypothesis):
-        while len(self.paths) < max_hypothesis and self.leaves:
+    def expand(self, max_hypothesis, max_depth):
+        while self.leaves and self._step <= max_depth:
             self.step(max_hypothesis)
 
     def get_hypothesis_scores(self):
@@ -98,12 +95,17 @@ class Beam(object):
     def get_hypothesis(self):
         return [tf.squeeze(p, axis=0) for p in self.paths]
 
-    def run(self, max_hypothesis=8):
-        self.expand(max_hypothesis)
-        return self.get_hypothesis(), self.get_hypothesis_scores()
+    def run(self, max_hypothesis=8, max_depth=32):
+        self.expand(max_hypothesis, max_depth)
+        return sorted([
+            {'sentence': l, 'score': s}
+            for l, s in zip(self.get_hypothesis(), self.get_hypothesis_scores())],
+            key=lambda x: x['score'],
+            reverse=False
+            )[-max_hypothesis:]
 
 
-def evaluate_beam(tokenizer, model, sentence, max_length, beam_size, max_hypothesis, training):
+def evaluate_beam(tokenizer, model, sentence, max_length, beam_size, max_hypothesis, max_depth, training):
     start_token, end_token = [tokenizer.vocab_size], [tokenizer.vocab_size + 1]
 
     sentence = preprocess_sentence(sentence)
@@ -111,14 +113,15 @@ def evaluate_beam(tokenizer, model, sentence, max_length, beam_size, max_hypothe
 
     beam = Beam(model, sentence, start_token, end_token, max_length, beam_size)
 
-    output, score = beam.run(max_hypothesis)
+    predictions = beam.run(max_hypothesis, max_depth)
 
-    return sorted([{'sentence': l, 'score': s} for l, s in zip(output, score)],
-            key=lambda x: x['score'], reverse=False)
+    return predictions
 
 
-def predict_beam(tokenizer, model, sentence, max_length=None, beam_size=8, max_hypothesis=8, training=False):
-    predictions = evaluate_beam(tokenizer, model, sentence, max_length, beam_size, max_hypothesis, training)
+def predict_beam(tokenizer, model, sentence, max_length=None, beam_size=16, max_hypothesis=8,
+        max_depth=32, training=False):
+    predictions = evaluate_beam(tokenizer, model, sentence, max_length, beam_size, max_hypothesis,
+            max_depth, training)
     for prediction in predictions:
         sentence = [i for i in prediction['sentence'] if i < tokenizer.vocab_size]
         result = tokenizer.decode(sentence)

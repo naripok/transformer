@@ -44,7 +44,7 @@ import pandas as pd
 import altair as alt
 import os
 import datetime
-from .beam_search import evaluate_beam, predict_beam
+from .inference import predict_beam, predict_greedy
 
 alt.renderers.enable('altair_viewer')
 
@@ -704,37 +704,6 @@ def train(model, train_data, eval_data, epochs=10, min_delta=0.001,
         model = _train(save_history)
 
     return model, history
-
-
-def evaluate_greedy(tokenizer, model, sentence, max_length, training=False):
-    start_token, end_token = [tokenizer.vocab_size], [tokenizer.vocab_size + 1]
-
-    sentence = preprocess_sentence(sentence)
-    sentence = tf.expand_dims(start_token + tokenizer.encode(sentence) + end_token, axis=0)
-    output = tf.expand_dims(start_token, 0)
-
-    for i in range(max_length):
-        predictions = model(inputs=[sentence, output], training=training)
-
-        # select the last word from the seq_len dimension
-        predictions = predictions[:, -1:, :]
-        predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
-
-        # return the result if the predicted_id is equal to the end token
-        if tf.equal(predicted_id, end_token[0]):
-            break
-
-        # concatenated the predicted_id to the output which is given to the decoder
-        # as imodel_optsts input.
-        output = tf.concat([output, predicted_id], axis=-1)
-
-    return tf.squeeze(output, axis=0)
-
-
-def predict_greedy(tokenizer, model, sentence, max_length, training=False):
-    predictions = evaluate_greedy(tokenizer, model, sentence, max_length, training=training)
-    sentence = [i for i in prediction[0] if i < tokenizer.vocab_size]
-    return tokenizer.decode(sentence)
 
 
 #@title Training Routine { vertical-output: true, display-mode: "form" }
