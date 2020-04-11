@@ -14,6 +14,7 @@ alt.renderers.enable('altair_viewer')
 
 NEW_MODEL = True  #@param {type:"boolean"}
 TRAIN = True  #@param {type:"boolean"}
+IS_TPU = False  #@param {type:"boolean"}
 
 # Training params
 EPOCHS = 2 #@param {type:"integer"}

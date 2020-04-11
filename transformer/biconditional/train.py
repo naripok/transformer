@@ -20,6 +20,7 @@ tf.keras.backend.clear_session()
 
 IS_COLAB = False #@param {type:"boolean"}
 MOUNT_DRIVE = False #@param {type:"boolean"}
+IS_TPU = False
 
 NEW_MODEL = True  #@param {type:"boolean"}
 TRAIN_MODEL = True  #@param {type:"boolean"}
@@ -57,7 +58,6 @@ UNITS = 128
 DROPOUT = 0.1
 
 
-IS_TPU = False
 if IS_COLAB:
     from google.colab import output
     try:
