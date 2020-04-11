@@ -756,12 +756,12 @@ def train(model, train_data, eval_data, epochs=10, min_delta=0.001,
 #@title Training Routine { vertical-output: true, display-mode: "form" }
 
 if __name__ == "__main__":
-    NEW_MODEL = False  #@param {type:"boolean"}
-    TRAIN_MODEL = False  #@param {type:"boolean"}
-    TRAIN_TOKENIZER = False  #@param {type:"boolean"}
+    NEW_MODEL = True  #@param {type:"boolean"}
+    TRAIN_MODEL = True  #@param {type:"boolean"}
+    TRAIN_TOKENIZER = True  #@param {type:"boolean"}
 
-    #  corpus_name = "friends-corpus, movie-corpus, reddit-corpus-small" #@param {type:"string"}
-    corpus_name = "movie-corpus" #@param {type:"string"}
+    corpus_name = "friends-corpus, movie-corpus, reddit-corpus-small" #@param {type:"string"}
+    #  corpus_name = "movie-corpus" #@param {type:"string"}
 
     # Training params
     EPOCHS =  100#@param {type:"integer"}
@@ -786,7 +786,7 @@ if __name__ == "__main__":
     MAX_SAMPLES = 9999999  #@param {type:"integer"}
 
     # Hyper-parameters
-    NUM_LAYERS =   4#@param {type:"integer"}
+    NUM_LAYERS = 2  #@param {type:"integer"}
     D_MODEL = 128  #@param {type:"integer"}
     NUM_HEADS = 8  #@param {type:"integer"}
     UNITS = 128  #@param {type:"integer"}
