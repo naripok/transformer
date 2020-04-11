@@ -1,8 +1,4 @@
-# Google Transformer chatbot model
-
-'''
-https://colab.research.google.com/github/tensorflow/examples/blob/master/community/en/transformer_chatbot.ipynb#scrollTo=rHMPkA2eQrpT
-'''
+# Transformer Models Collection
 
 ## Instalation
 
@@ -11,4 +7,5 @@ https://colab.research.google.com/github/tensorflow/examples/blob/master/communi
 
 
 ## Training and Running
-```python -m src.train```
+```python -m src.biconditional.train```
+```python -m src.vanilla.train```
