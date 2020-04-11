@@ -18,8 +18,8 @@ Reference:
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-IS_COLAB = True #@param {type:"boolean"}
-MOUNT_DRIVE = True #@param {type:"boolean"}
+IS_COLAB = False #@param {type:"boolean"}
+MOUNT_DRIVE = False #@param {type:"boolean"}
 
 if IS_COLAB and MOUNT_DRIVE:
     from google.colab import drive
@@ -32,12 +32,20 @@ if IS_COLAB and MOUNT_DRIVE:
 
 # %tensorflow_version 2.x
 
+import os
+import datetime
 import re
 import logging
 import pickle
 from tqdm import tqdm
 import tensorflow as tf
 from tensorflow_datasets.core.features.text import SubwordTextEncoder
+import pandas as pd
+import altair as alt
+from .preprocessing import load_conversations, tokenize_and_filter
+from .inference import predict_greedy, predict_beam
+
+alt.renderers.enable('altair_viewer')
 
 tf.random.set_seed(42)
 logging.basicConfig(level=logging.INFO)
@@ -49,8 +57,8 @@ if IS_COLAB:
     from google.colab import output
     try:
         with output.use_tags('setup'):
-            !pip install convokit
-            !python3 -m spacy download en
+            #  !pip install convokit
+            #  !python3 -m spacy download en
             tpu = tf.distribute.cluster_resolver.TPUClusterResolver()  # TPU detection
             print('Running ovariable_namen TPU ', tpu.cluster_spec().as_dict()['worker'])
             tf.config.experimental_connect_to_cluster(tpu)
@@ -58,23 +66,19 @@ if IS_COLAB:
             tpu_strategy = tf.distribute.experimental.TPUStrategy(tpu)
             IS_TPU = True
         output.clear(output_tags='setup')
-    
+
     except ValueError:
         logging.info('Not connected to a TPU runtime')
 
 logging.info('Done!')
 
-#@title Save path {display-mode: "form"}
-
-# This code will be hidden when the notebook is loaded.
-
-import os
-import datetime
-
 if IS_COLAB:
     model_path = "/content/drive/My Drive/discordbot/saved_model"  #@param {type:"string"}
 else:
-    model_path = "./saved_model"  #@param {type:"string"}
+    model_path = "./saved_model/biconditional"  #@param {type:"string"}
+
+if not os.path.exists(model_path):
+    os.makedirs(model_path)
 
 model_weights_path = model_path + '/weights.h5'
 tokenizer_path = model_path + '/saved_tokenizer.pickle'
@@ -82,105 +86,6 @@ model_config_path = model_path + '/model_config.pickle'
 dataset_config_path = model_path + '/dataset_config.pickle'
 train_config_path = model_path + '/train_config.pickle'
 log_dir = model_path + '/logs/fit/' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-
-# if not os.path.exists(log_dir):
-#     os.makedirs(log_dir)
-
-#@title Preprocessing Functions {display-mode: "form"}
-
-import pandas as pd
-import altair as alt
-import convokit
-from convokit import Corpus, download
-import nltk; nltk.download('punkt')
-
-# This code will be hidden when the notebook is loaded.
-
-def tokenize_and_filter(tokenizer, inputs, context, outputs, max_length=32):
-    # Define start and end token to indicate the start and end of a sentence
-    START_TOKEN, END_TOKEN = [tokenizer.vocab_size], [tokenizer.vocab_size + 1]
-
-    logging.info('Tokenizing sentences.')
-
-    tokenized_inputs, tokenized_context, tokenized_outputs = [], [], []
-    for (sentence1, sentence2, sentence3) in tqdm(zip(inputs, context, outputs)):
-        # tokenize sentence
-        sentence1 = START_TOKEN + tokenizer.encode(sentence1) + END_TOKEN
-        sentence2 = START_TOKEN + tokenizer.encode(sentence2) + END_TOKEN
-        sentence3 = START_TOKEN + tokenizer.encode(sentence3) + END_TOKEN
-
-        # check tokenized sentence max length
-        if len(sentence1) <= max_length \
-        and len(sentence2) <= max_length \
-        and len(sentence3) <= max_length:
-            tokenized_inputs.append(sentence1)
-            tokenized_context.append(sentence2)
-            tokenized_outputs.append(sentence3)
-
-    # pad tokenized sentences
-    tokenized_inputs = tf.keras.preprocessing.sequence.pad_sequences(
-        tokenized_inputs, maxlen=max_length, padding='post')
-    tokenized_context = tf.keras.preprocessing.sequence.pad_sequences(
-        tokenized_context, maxlen=max_length, padding='post')
-    tokenized_outputs = tf.keras.preprocessing.sequence.pad_sequences(
-        tokenized_outputs, maxlen=max_length, padding='post')
-
-    logging.info('Done!')
-
-    return tokenized_inputs, tokenized_context, tokenized_outputs
-
-
-def preprocess_sentence(sentence):
-    sentence = sentence.lower().strip()
-    # creating a space between a word and the punctuation following it
-    # eg: "he is a boy." => "he is a boy ."
-    sentence = re.sub(r'([?.!,])', r' \1 ', sentence)
-    sentence = re.sub(r'[" "]+', ' ', sentence)
-    # replacing everything with space except (a-z, A-Z, ".", "?", "!", ",")
-    sentence = re.sub(r'[^a-zA-Z?.!,]+', ' ', sentence)
-    sentence = sentence.strip()
-    # adding a start and an end token to the sentence
-    return sentence
-
-
-def load_conversations(corpus_name, max_samples, eval_percent=0.1):
-    logging.info('Loading data.')
-
-    def split_data(inputs, context, outputs, eval_percent):
-        eval_index = int(len(inputs) * (1 - eval_percent))
-        return (inputs[:eval_index],
-                context[:eval_index],
-                outputs[:eval_index],
-                inputs[eval_index:],
-                context[eval_index:],
-                outputs[eval_index:])
-
-    corpus = Corpus(filename=download(corpus_name))
-
-    deleted_filter = re.compile(r'^(\[deleted]|\[removed])$')
-
-    inputs, context, outputs = [], [], []
-    for paths in corpus.iter_conversations():
-        for path in paths.get_root_to_leaf_paths():
-            for i in range(1, len(path)-1):
-
-                if deleted_filter.match(path[i].text) \
-                or deleted_filter.match(path[i-1].text) \
-                or deleted_filter.match(path[i+1].text):
-                    continue
-
-                inputs.append(path[i].text)
-                context.append(path[i-1].text)
-                outputs.append(path[i+1].text)
-
-                if len(inputs) >= max_samples:
-                    return split_data(inputs, context, outputs, eval_percent)
-
-    return split_data(inputs, context, outputs, eval_percent)
-
-#@title Model Definition Functions {display-mode: "form"}
-
-# This code will be hidden when the notebook is loaded.
 
 
 def scaled_dot_product_attention(query, key, value, mask):
@@ -573,7 +478,7 @@ def accuracy(max_length=32):
 
 
 def make_model(
-    tokenizer=None, 
+    tokenizer=None,
     num_layers=2,
     units=512,
     d_model=256,
@@ -780,51 +685,18 @@ def train(model, train_data, eval_data, epochs=10, min_delta=0.001,
 
     return model, history
 
-
-def evaluate(tokenizer, model, sentence, context, max_length, training=False):
-    start_token, end_token = [tokenizer.vocab_size], [tokenizer.vocab_size + 1]
-
-    sentence = preprocess_sentence(sentence)
-    sentence = tf.expand_dims(start_token + tokenizer.encode(sentence) + end_token, axis=0)
-    context = preprocess_sentence(context)
-    context = tf.expand_dims(start_token + tokenizer.encode(context) + end_token, axis=0)
-    output = tf.expand_dims(start_token, 0)
-
-    for i in range(max_length):
-        predictions = model(inputs=[sentence, context, output], training=training)
-
-        # select the last word from the seq_len dimension
-        predictions = predictions[:, -1:, :]
-        predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
-
-        # return the result if the predicted_id is equal to the end token
-        if tf.equal(predicted_id, end_token[0]):
-            break
-
-        # concatenated the predicted_id to the output which is given to the decoder
-        # as imodel_optsts input.
-        output = tf.concat([output, predicted_id], axis=-1)
-
-    return tf.squeeze(output, axis=0)
-
-
-def predict(tokenizer, model, sentence, context, max_length, training=False):
-    prediction = evaluate(tokenizer, model, sentence, context, max_length, training)
-    prediction = [i for i in prediction if i < tokenizer.vocab_size]
-    return tokenizer.decode(prediction)
-
 #@title Decoder Model Visualization
 
-sample_decoder_layer = decoder_layer(
-    units=128,
-    d_model=64,
-    num_heads=2,
-    dropout=0.3,
-    name="sample_decoder_layer")
-
-tf.keras.utils.plot_model(
-    sample_decoder_layer, to_file='decoder_layer.png', show_shapes=True)
-
+#  sample_decoder_layer = decoder_layer(
+#      units=128,
+#      d_model=64,
+#      num_heads=2,
+#      dropout=0.3,
+#      name="sample_decoder_layer")
+#  
+#  tf.keras.utils.plot_model(
+#      sample_decoder_layer, to_file='decoder_layer.png', show_shapes=True)
+#  
 #@title Transformer Model Visualization
 
 # train_inputs, train_context, train_outputs, eval_inputs, eval_context, \
@@ -868,141 +740,115 @@ tf.keras.utils.plot_model(
 # len(list(dataset.as_numpy_iterator()))
 # list(dataset.as_numpy_iterator())
 
-sample_transformer = transformer(
-    vocab_size=8192,
-    num_layers=2,
-    units=128,
-    d_model=64,
-    num_heads=4,
-    dropout=0.3,
-    name="sample_transformer"
-)
-
-tf.keras.utils.plot_model(
-    sample_transformer, to_file='transformer.png', show_shapes=True)
-
+#  sample_transformer = transformer(
+#      vocab_size=8192,
+#      num_layers=2,
+#      units=128,
+#      d_model=64,
+#      num_heads=4,
+#      dropout=0.3,
+#      name="sample_transformer"
+#  )
+#  
+#  tf.keras.utils.plot_model(
+#      sample_transformer, to_file='transformer.png', show_shapes=True)
+#  
 #@title Training Routine { vertical-output: true, display-mode: "form" }
 
-NEW_MODEL = True  #@param {type:"boolean"}
-TRAIN_MODEL = True  #@param {type:"boolean"}
-TRAIN_TOKENIZER = False  #@param {type:"boolean"}
+if __name__ == "__main__":
+    NEW_MODEL = False  #@param {type:"boolean"}
+    TRAIN_MODEL = False  #@param {type:"boolean"}
+    TRAIN_TOKENIZER = False  #@param {type:"boolean"}
 
-corpus_name = "friends-corpus, movie-corpus, reddit-corpus-small" #@param {type:"string"}
+    #  corpus_name = "friends-corpus, movie-corpus, reddit-corpus-small" #@param {type:"string"}
+    corpus_name = "movie-corpus" #@param {type:"string"}
 
-# Training params
-EPOCHS =  100#@param {type:"integer"}
-if IS_TPU:
-    BATCH_SIZE = 128 * tpu_strategy.num_replicas_in_sync
-else:
-    BATCH_SIZE = 128
-BUFFER_SIZE = 100000  #@param {type:"integer"}
-EVAL_PERCENT = 0.05  #@param {type:"number"}
-WARMUP_STEPS = 2000  #@param {type:"integer"}
-MIN_DELTA = 0.0005 #@param {type:"number"}
-PATIENCE = 30  #@param {type:"integer"}
-BASELINE = 0  #@param {type:"number"}
-if not BASELINE:
-    BASELINE = None
+    # Training params
+    EPOCHS =  100#@param {type:"integer"}
+    if IS_TPU:
+        BATCH_SIZE = 128 * tpu_strategy.num_replicas_in_sync
+    else:
+        BATCH_SIZE = 128
+    BUFFER_SIZE = 100000  #@param {type:"integer"}
+    EVAL_PERCENT = 0.05  #@param {type:"number"}
+    WARMUP_STEPS = 2000  #@param {type:"integer"}
+    MIN_DELTA = 0.0005 #@param {type:"number"}
+    PATIENCE = 30  #@param {type:"integer"}
+    BASELINE = 0  #@param {type:"number"}
+    if not BASELINE:
+        BASELINE = None
 
-# tokenizer params
-TARGET_VOCAB_SIZE = 2**13  #@param {type:"raw"}
+    # tokenizer params
+    TARGET_VOCAB_SIZE = 2**13  #@param {type:"raw"}
 
-# Maximum number of samples to preprocess
-MAX_LENGTH =    16#@param {type:"integer"}
-MAX_SAMPLES = 9999999  #@param {type:"integer"}
+    # Maximum number of samples to preprocess
+    MAX_LENGTH =    16#@param {type:"integer"}
+    MAX_SAMPLES = 9999999  #@param {type:"integer"}
 
-# Hyper-parameters
-NUM_LAYERS =   4#@param {type:"integer"}
-D_MODEL = 128  #@param {type:"integer"}
-NUM_HEADS = 8  #@param {type:"integer"}
-UNITS = 128  #@param {type:"integer"}
-DROPOUT = 0.1  #@param {type:"number"}
+    # Hyper-parameters
+    NUM_LAYERS =   4#@param {type:"integer"}
+    D_MODEL = 128  #@param {type:"integer"}
+    NUM_HEADS = 8  #@param {type:"integer"}
+    UNITS = 128  #@param {type:"integer"}
+    DROPOUT = 0.1  #@param {type:"number"}
 
-train_questions = []
-train_context = []
-train_answers = []
-eval_questions = []
-eval_context = []
-eval_answers = []
-for corpus in corpus_name.split(', '):
-    corpus_tuple = load_conversations(corpus, MAX_SAMPLES, EVAL_PERCENT)
-    train_questions.extend(corpus_tuple[0])
-    train_context.extend(corpus_tuple[1])
-    train_answers.extend(corpus_tuple[2])
-    eval_questions.extend(corpus_tuple[3])
-    eval_context.extend(corpus_tuple[4])
-    eval_answers.extend(corpus_tuple[5])
+    if NEW_MODEL:
 
-print(f'Train questions len: {len(train_questions)}')
-print(f'Train context len: {len(train_context)}')
-print(f'Train answers len: {len(train_answers)}')
+        train_opts = {
+            'epochs': EPOCHS,
+            'patience': PATIENCE,
+            'min_delta': MIN_DELTA,
+            'baseline': BASELINE
+        }
 
-print(f'Eval questions len: {len(eval_questions)}')
-print(f'Eval context len: {len(eval_context)}')
-print(f'Eval answers len: {len(eval_answers)}')
- 
-if NEW_MODEL:
+        dataset_opts = {
+            'batch_size': BATCH_SIZE,
+            'buffer_size': BUFFER_SIZE,
+            'max_length': MAX_LENGTH,
+            'target_vocab_size': TARGET_VOCAB_SIZE
+        }
 
-    train_opts = {
-        'epochs': EPOCHS,
-        'patience': PATIENCE,
-        'min_delta': MIN_DELTA,
-        'baseline': BASELINE
-    }
+        model_opts = {
+            'num_layers': NUM_LAYERS,
+            'units': UNITS,
+            'd_model': D_MODEL,
+            'num_heads': NUM_HEADS,
+            'dropout': DROPOUT,
+            'max_length': MAX_LENGTH,
+            'warmup_steps': WARMUP_STEPS,
+        }
 
-    dataset_opts = {
-        'batch_size': BATCH_SIZE,
-        'buffer_size': BUFFER_SIZE,
-        'max_length': MAX_LENGTH,
-        'target_vocab_size': TARGET_VOCAB_SIZE
-    }
+        save_obj(model_config_path, model_opts)
+        save_obj(dataset_config_path, dataset_opts)
+        save_obj(train_config_path, train_opts)
 
-    model_opts = {
-        'num_layers': NUM_LAYERS,
-        'units': UNITS,
-        'd_model': D_MODEL,
-        'num_heads': NUM_HEADS,
-        'dropout': DROPOUT,
-        'max_length': MAX_LENGTH,
-        'warmup_steps': WARMUP_STEPS,
-    }
+        tokenizer = None
+        if not TRAIN_TOKENIZER:
+            tokenizer = load_obj(tokenizer_path)
 
-    save_obj(model_config_path, model_opts)
-    save_obj(dataset_config_path, dataset_opts)
-    save_obj(train_config_path, train_opts)
+        train_questions = []
+        train_context = []
+        train_answers = []
+        eval_questions = []
+        eval_context = []
+        eval_answers = []
+        for corpus in corpus_name.split(', '):
+            corpus_tuple = load_conversations(corpus, MAX_SAMPLES, EVAL_PERCENT)
+            train_questions.extend(corpus_tuple[0])
+            train_context.extend(corpus_tuple[1])
+            train_answers.extend(corpus_tuple[2])
+            eval_questions.extend(corpus_tuple[3])
+            eval_context.extend(corpus_tuple[4])
+            eval_answers.extend(corpus_tuple[5])
 
-    tokenizer = None
-    if not TRAIN_TOKENIZER:
-        tokenizer = load_obj(tokenizer_path)
+        print(f'Train questions len: {len(train_questions)}')
+        print(f'Train context len: {len(train_context)}')
+        print(f'Train answers len: {len(train_answers)}')
 
-    tokenizer, train_data = make_dataset(
-        train_questions,
-        train_context,
-        train_answers,
-        tokenizer,
-        **dataset_opts
-        )
-    _, eval_data = make_dataset(
-        eval_questions,
-        eval_context,
-        eval_answers,
-        tokenizer,
-        **dataset_opts
-        )
+        print(f'Eval questions len: {len(eval_questions)}')
+        print(f'Eval context len: {len(eval_context)}')
+        print(f'Eval answers len: {len(eval_answers)}')
 
-    model = make_model(tokenizer, **model_opts)
-
-    if TRAIN_MODEL:
-        model, history = train(model, train_data,
-                               eval_data, **train_opts)
-else:
-    train_opts = load_obj(train_config_path)
-    dataset_opts = load_obj(dataset_config_path)
-    model_opts = load_obj(model_config_path)
-
-    tokenizer, model = load_model(model_opts)
-
-    if TRAIN_MODEL:
         tokenizer, train_data = make_dataset(
             train_questions,
             train_context,
@@ -1015,60 +861,112 @@ else:
             eval_context,
             eval_answers,
             tokenizer,
-            **dataset_opts)
+            **dataset_opts
+            )
 
-        model, history = train(model, train_data,
-                               eval_data, **train_opts)
+        model = make_model(tokenizer, **model_opts)
+
+        if TRAIN_MODEL:
+            model, history = train(model, train_data,
+                                   eval_data, **train_opts)
+    else:
+        train_opts = load_obj(train_config_path)
+        dataset_opts = load_obj(dataset_config_path)
+        model_opts = load_obj(model_config_path)
+
+        tokenizer, model = load_model(model_opts)
+
+        if TRAIN_MODEL:
+
+            train_questions = []
+            train_context = []
+            train_answers = []
+            eval_questions = []
+            eval_context = []
+            eval_answers = []
+            for corpus in corpus_name.split(', '):
+                corpus_tuple = load_conversations(corpus, MAX_SAMPLES, EVAL_PERCENT)
+                train_questions.extend(corpus_tuple[0])
+                train_context.extend(corpus_tuple[1])
+                train_answers.extend(corpus_tuple[2])
+                eval_questions.extend(corpus_tuple[3])
+                eval_context.extend(corpus_tuple[4])
+                eval_answers.extend(corpus_tuple[5])
+
+            print(f'Train questions len: {len(train_questions)}')
+            print(f'Train context len: {len(train_context)}')
+            print(f'Train answers len: {len(train_answers)}')
+
+            print(f'Eval questions len: {len(eval_questions)}')
+            print(f'Eval context len: {len(eval_context)}')
+            print(f'Eval answers len: {len(eval_answers)}')
 
 
-model.summary()
+            tokenizer, train_data = make_dataset(
+                train_questions,
+                train_context,
+                train_answers,
+                tokenizer,
+                **dataset_opts
+                )
+            _, eval_data = make_dataset(
+                eval_questions,
+                eval_context,
+                eval_answers,
+                tokenizer,
+                **dataset_opts)
 
-context = 'Welcome to the desert of the real.'
-for you in ['am I dead?', 'What is the matrix?', "I thought it wasn't real"]:
-    prediction = context = predict(tokenizer, model, you, context, max_length=MAX_LENGTH)
+            model, history = train(model, train_data,
+                                   eval_data, **train_opts)
+
+            model.summary()
+            hist_df = pd.DataFrame.from_records(history)
+            hist_df['epoch'] = [i for i in range(len(history))]
+
+            graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
+            def make_graph(y):
+                return alt.Chart(hist_df).mark_point().encode(
+                    x='epoch',
+                    y=y,
+                ).properties(
+                    width=200,
+                    height=200
+                )
+
+            alt.hconcat(*[make_graph(y) for y in graphs]).show()
+
+            #@title Training History Compare { vertical-output: true }
+            model.summary()
+
+            hist_df = pd.DataFrame.from_records(history)
+            hist_df['epoch'] = [i for i in range(len(history))]
+
+            graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
+            def make_graph(y):
+                return alt.Chart(hist_df).mark_point().encode(
+                    x='epoch',
+                    y=y,
+                ).properties(
+                    width=160,
+                    height=160
+                )
+
+            alt.hconcat(*[make_graph(y) for y in graphs]).show()
+
+
+    context = 'Welcome to the desert of the real.'
+    for you in ['am I dead?', 'What is the matrix?', "I thought it wasn't real"]:
+        prediction = context = predict_greedy(tokenizer, model, you, context, max_length=MAX_LENGTH)
+        print(f'transformer: {prediction}')
+
+    #@title Talk to the model { vertical-output: true }
+    context = "The pill you took is part of a trace program. It's design to disrupt your input/output carrier signal so we can pinpoint your location." #@param {type:"string"}
+    you = " What does that mean?" #@param {type:"string"}
+
+    prediction = context = predict_beam(tokenizer, model, you, context, beam_size=1)
     print(f'transformer: {prediction}')
 
-hist_df = pd.DataFrame.from_records(history)
-hist_df['epoch'] = [i for i in range(len(history))]
-
-graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-def make_graph(y):
-    return alt.Chart(hist_df).mark_point().encode(
-        x='epoch',
-        y=y,
-    ).properties(
-        width=200,
-        height=200
-    )
-
-alt.hconcat(*[make_graph(y) for y in graphs])
-
-#@title Training History Compare { vertical-output: true }
-model.summary()
-
-hist_df = pd.DataFrame.from_records(history)
-hist_df['epoch'] = [i for i in range(len(history))]
-
-graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-def make_graph(y):
-    return alt.Chart(hist_df).mark_point().encode(
-        x='epoch',
-        y=y,
-    ).properties(
-        width=160,
-        height=160
-    )
-
-alt.hconcat(*[make_graph(y) for y in graphs])
-
-#@title Talk to the model { vertical-output: true }
-context = "The pill you took is part of a trace program. It's design to disrupt your input/output carrier signal so we can pinpoint your location." #@param {type:"string"}
-you = " What does that mean?" #@param {type:"string"}
-
-prediction = context = predict(tokenizer, model, you, context, max_length=MAX_LENGTH)
-print(f'transformer: {prediction}')
-
-#@title Self Context
-you = "are we dead?" #@param {type:"string"}
-prediction = context = predict(tokenizer, model, you, context, max_length=MAX_LENGTH)
-print(f'transformer: {prediction}')
+    #@title Self Context
+    you = "are we dead?" #@param {type:"string"}
+    prediction = context = predict_beam(tokenizer, model, you, context)
+    print(f'transformer: {prediction}')

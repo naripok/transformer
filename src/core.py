@@ -21,20 +21,5 @@ class ChatBot(object):
     def get_response(self, sentence):
         if not self.model:
             return 'You need to train the model first.'
-        return predict(self.tokenizer, self.model, sentence, self.bufer,
+        return predict(self.tokenizer, self.model, sentence, self.buffer,
                 max_length=MAX_LENGTH)
-
-    def sample_tokenizer(self, num_samples, random=False):
-        if not self.tokenizer:
-            return 'You need to train the tokenizer first.'
-
-        if random:
-            return self.tokenizer.decode(
-                    [rd.randint(self.tokenizer.num_words)
-                        for _ in range(num_samples)
-                        ]
-                    )
-        else:
-            return self.tokenizer.decode(
-                    [i for i in range(num_samples)]
-                    )
