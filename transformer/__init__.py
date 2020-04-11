@@ -1,2 +1,2 @@
-from vanilla import *
-from biconditional import *
+from .vanilla import *
+from .biconditional import *
