@@ -7,5 +7,5 @@
 
 
 ## Training and Running
-```python -m src.biconditional.train```
+```python -m src.biconditional.train```  
 ```python -m src.vanilla.train```
