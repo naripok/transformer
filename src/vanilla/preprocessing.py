@@ -3,9 +3,12 @@ import re
 import logging
 from tqdm import tqdm
 import tensorflow as tf
+import convokit
+from convokit import Corpus, download
+#  import nltk; nltk.download('punkt')
 
 
-def tokenize_and_filter(tokenizer, inputs, outputs, max_length):
+def tokenize_and_filter(tokenizer, inputs, outputs, max_length=32):
     # Tokenize, filter and pad sentences
 
     # Define start and end token to indicate the start and end of a sentence
@@ -48,50 +51,35 @@ def preprocess_sentence(sentence):
     return sentence
 
 
-def load_conversations(max_samples):
+def load_conversations(corpus_name, max_samples, eval_percent=0.1):
     logging.info('Loading data.')
 
-    # Download training data
-    path_to_zip = tf.keras.utils.get_file(
-        'cornell_movie_dialogs.zip',
-        origin='http://www.cs.cornell.edu/~cristian/data/cornell_movie_dialogs_corpus.zip',
-        extract=True)
+    def split_data(inputs, outputs, eval_percent):
+        eval_index = int(len(inputs) * (1 - eval_percent))
+        return (inputs[:eval_index],
+                outputs[:eval_index],
+                inputs[eval_index:],
+                outputs[eval_index:])
 
-    path_to_dataset = os.path.join(
-        os.path.dirname(path_to_zip), "cornell movie-dialogs corpus")
+    corpus = Corpus(filename=download(corpus_name))
 
-    path_to_movie_lines = os.path.join(path_to_dataset, 'movie_lines.txt')
-    path_to_movie_conversations = os.path.join(path_to_dataset, 'movie_conversations.txt')
-
-    # dictionary of line id to text
-    id2line = {}
-    with open(path_to_movie_lines, errors='ignore') as file:
-        lines = file.readlines()
-
-    logging.info('Done!')
-    logging.info('Preprocessing data.')
-
-    for line in lines:
-        parts = line.replace('\n', '').split(' +++$+++ ')
-        id2line[parts[0]] = parts[4]
+    deleted_filter = re.compile(r'^(\[deleted]|\[removed])$')
 
     inputs, outputs = [], []
-    with open(path_to_movie_conversations, 'r') as file:
-        lines = file.readlines()
+    for paths in corpus.iter_conversations():
+        for path in paths.get_root_to_leaf_paths():
+            for i in range(len(path)-1):
 
-    for line in tqdm(lines):
-        parts = line.replace('\n', '').split(' +++$+++ ')
-        # get conversation in a list of line ID
-        conversation = [line[1:-1] for line in parts[3][1:-1].split(', ')]
+                if deleted_filter.match(path[i].text) \
+                or deleted_filter.match(path[i-1].text) \
+                or deleted_filter.match(path[i+1].text):
+                    continue
 
-        for i in range(len(conversation) - 1):
-            inputs.append(preprocess_sentence(id2line[conversation[i]]))
-            outputs.append(preprocess_sentence(id2line[conversation[i + 1]]))
+                inputs.append(path[i].text)
+                outputs.append(path[i+1].text)
 
-            if len(inputs) >= max_samples:
-              return inputs, outputs
+                if len(inputs) >= max_samples:
+                    return split_data(inputs, outputs, eval_percent)
 
     logging.info('Done!')
-    return inputs, outputs
-
-
+    return split_data(inputs, outputs, eval_percent)
