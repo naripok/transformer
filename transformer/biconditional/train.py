@@ -22,9 +22,9 @@ IS_COLAB = False #@param {type:"boolean"}
 MOUNT_DRIVE = False #@param {type:"boolean"}
 IS_TPU = False
 
-NEW_MODEL = True  #@param {type:"boolean"}
-TRAIN_MODEL = True  #@param {type:"boolean"}
-TRAIN_TOKENIZER = True  #@param {type:"boolean"}
+NEW_MODEL = False  #@param {type:"boolean"}
+TRAIN_MODEL = False  #@param {type:"boolean"}
+TRAIN_TOKENIZER = False  #@param {type:"boolean"}
 
 corpus_name = "friends-corpus, movie-corpus, reddit-corpus-small" #@param {type:"string"}
 
@@ -476,13 +476,6 @@ if __name__ == "__main__":
     for you in ['am I dead?', 'What is the matrix?', "I thought it wasn't real"]:
         prediction = context = predict_greedy(tokenizer, model, you, context, max_length=MAX_LENGTH)
         print(f'transformer: {prediction}')
-
-    #@title Talk to the model { vertical-output: true }
-    context = "The pill you took is part of a trace program. It's design to disrupt your input/output carrier signal so we can pinpoint your location." #@param {type:"string"}
-    you = " What does that mean?" #@param {type:"string"}
-
-    prediction = context = predict_beam(tokenizer, model, you, context, beam_size=1)
-    print(f'transformer: {prediction}')
 
     #@title Self Context
     you = "are we dead?" #@param {type:"string"}

@@ -1,23 +1,25 @@
 import os
 import datetime
+import logging
 import tensorflow as tf
-#  import pandas as pd
 from tensorflow_datasets.core.features.text import SubwordTextEncoder
-#  import altair as alt
 import pickle
+#  import pandas as pd
+#  import altair as alt
 from .model import *
 from .preprocessing import *
 from .inference import predict_beam, predict_greedy
 
+logging.basicConfig(level=logging.INFO)
 #  alt.renderers.enable('altair_viewer')
 
 
-NEW_MODEL = True  #@param {type:"boolean"}
-TRAIN = True  #@param {type:"boolean"}
+NEW_MODEL = False  #@param {type:"boolean"}
+TRAIN = False  #@param {type:"boolean"}
 IS_TPU = False  #@param {type:"boolean"}
 
 # Training params
-EPOCHS = 2 #@param {type:"integer"}
+EPOCHS = 10 #@param {type:"integer"}
 MAX_SAMPLES = 100000  #@param {type:"integer"}
 if IS_TPU:
     BATCH_SIZE = 128 * tpu_strategy.num_replicas_in_sync
