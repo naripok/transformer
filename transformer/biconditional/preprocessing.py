@@ -3,9 +3,9 @@ import re
 import logging
 from tqdm import tqdm
 import tensorflow as tf
-import nltk; nltk.download('punkt')
-import convokit
-from convokit import Corpus, download
+#  import nltk; nltk.download('punkt')
+#  import convokit
+#  from convokit import Corpus, download
 
 
 def tokenize_and_filter(tokenizer, inputs, context, outputs, max_length=32):

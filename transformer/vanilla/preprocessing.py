@@ -3,8 +3,8 @@ import re
 import logging
 from tqdm import tqdm
 import tensorflow as tf
-import convokit
-from convokit import Corpus, download
+#  import convokit
+#  from convokit import Corpus, download
 #  import nltk; nltk.download('punkt')
 
 
