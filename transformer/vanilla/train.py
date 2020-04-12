@@ -1,15 +1,15 @@
 import os
 import datetime
 import tensorflow as tf
-import pandas as pd
+#  import pandas as pd
 from tensorflow_datasets.core.features.text import SubwordTextEncoder
-import altair as alt
+#  import altair as alt
 import pickle
 from .model import *
 from .preprocessing import *
 from .inference import predict_beam, predict_greedy
 
-alt.renderers.enable('altair_viewer')
+#  alt.renderers.enable('altair_viewer')
 
 
 NEW_MODEL = True  #@param {type:"boolean"}
@@ -353,20 +353,20 @@ if __name__ == "__main__":
 
             model.summary()
 
-            hist_df = pd.DataFrame.from_records(history)
-            hist_df['epoch'] = [i for i in range(len(history))]
-
-            graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-            def make_graph(y):
-                return alt.Chart(hist_df).mark_point().encode(
-                    x='epoch',
-                    y=y,
-                ).properties(
-                    width=360,
-                    height=360
-                )
-
-            alt.hconcat(*[make_graph(y) for y in graphs]).show()
+            #  hist_df = pd.DataFrame.from_records(history)
+            #  hist_df['epoch'] = [i for i in range(len(history))]
+            #  
+            #  graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
+            #  def make_graph(y):
+            #      return alt.Chart(hist_df).mark_point().encode(
+            #          x='epoch',
+            #          y=y,
+            #      ).properties(
+            #          width=360,
+            #          height=360
+            #      )
+            #  
+            #  alt.hconcat(*[make_graph(y) for y in graphs]).show()
 
     you = "what is your name?"
     print(f'you: {you}')

@@ -5,8 +5,8 @@ import re
 import pickle
 import tensorflow as tf
 from tensorflow_datasets.core.features.text import SubwordTextEncoder
-import pandas as pd
-import altair as alt
+#  import pandas as pd
+#  import altair as alt
 from .preprocessing import load_conversations, tokenize_and_filter
 from .inference import predict_greedy, predict_beam
 from .model import *
@@ -14,7 +14,7 @@ from .model import *
 
 logging.basicConfig(level=logging.INFO)
 tf.random.set_seed(42)
-alt.renderers.enable('altair_viewer')
+#  alt.renderers.enable('altair_viewer')
 tf.keras.backend.clear_session()
 
 
@@ -438,38 +438,38 @@ if __name__ == "__main__":
                                    eval_data, **train_opts)
 
             model.summary()
-            hist_df = pd.DataFrame.from_records(history)
-            hist_df['epoch'] = [i for i in range(len(history))]
+            #  hist_df = pd.DataFrame.from_records(history)
+            #  hist_df['epoch'] = [i for i in range(len(history))]
+            #  
+            #  graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
+            #  def make_graph(y):
+            #      return alt.Chart(hist_df).mark_point().encode(
+            #          x='epoch',
+            #          y=y,
+            #      ).properties(
+            #          width=200,
+            #          height=200
+            #      )
+            #  
+            #  alt.hconcat(*[make_graph(y) for y in graphs]).show()
+            #  
+            #  #@title Training History Compare { vertical-output: true }
+            #  model.summary()
+            #  
+            #  hist_df = pd.DataFrame.from_records(history)
+            #  hist_df['epoch'] = [i for i in range(len(history))]
 
-            graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-            def make_graph(y):
-                return alt.Chart(hist_df).mark_point().encode(
-                    x='epoch',
-                    y=y,
-                ).properties(
-                    width=200,
-                    height=200
-                )
-
-            alt.hconcat(*[make_graph(y) for y in graphs]).show()
-
-            #@title Training History Compare { vertical-output: true }
-            model.summary()
-
-            hist_df = pd.DataFrame.from_records(history)
-            hist_df['epoch'] = [i for i in range(len(history))]
-
-            graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-            def make_graph(y):
-                return alt.Chart(hist_df).mark_point().encode(
-                    x='epoch',
-                    y=y,
-                ).properties(
-                    width=160,
-                    height=160
-                )
-
-            alt.hconcat(*[make_graph(y) for y in graphs]).show()
+            #  graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
+            #  def make_graph(y):
+            #      return alt.Chart(hist_df).mark_point().encode(
+            #          x='epoch',
+            #          y=y,
+            #      ).properties(
+            #          width=160,
+            #          height=160
+            #      )
+            #  
+            #  alt.hconcat(*[make_graph(y) for y in graphs]).show()
 
 
     context = 'Welcome to the desert of the real.'
