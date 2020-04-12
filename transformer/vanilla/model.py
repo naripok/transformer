@@ -43,8 +43,6 @@ if IS_COLAB:
     except ValueError:
         logging.info('Not connected to a TPU runtime')
 
-logging.info('Done!')
-
 
 def scaled_dot_product_attention(query, key, value, mask):
     ''' Calculate the attention weights. '''
