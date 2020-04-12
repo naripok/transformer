@@ -12,6 +12,8 @@ transformer/biconditional/train.py
 transformer/biconditional/inference/__init__.py
 transformer/biconditional/inference/beam.py
 transformer/biconditional/inference/greedy.py
+transformer/utils/__init__.py
+transformer/utils/beam.py
 transformer/vanilla/__init__.py
 transformer/vanilla/model.py
 transformer/vanilla/preprocessing.py
