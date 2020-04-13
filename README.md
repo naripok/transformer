@@ -1,4 +1,4 @@
-# Transformer Models Chatbot Collection
+# Conversational Transformer Models Collection
 
 This repository contains a collection of Conversational Transformer models.
 It uses tensorflow and stanford's convokit for data fetching and

@@ -7,7 +7,7 @@ IS_COLAB = False
 TARGET_VOCAB_SIZE = 2**13
 
 # Maximum number of samples to preprocess
-MAX_LENGTH = 16
+MAX_LENGTH = 32
 
 # Hyper-parameters
 NUM_LAYERS = 2
@@ -18,7 +18,7 @@ DROPOUT = 0.1
 
 
 if IS_COLAB:
-    model_path = "/content/drive/My Drive/discordbot/saved_model"
+    model_path = "/content/drive/My Drive/saved_model"
 else:
     model_path = "./saved_model/biconditional"
 

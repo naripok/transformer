@@ -1,4 +1,5 @@
 import os
+import argparse
 import datetime
 import logging
 import tensorflow as tf
@@ -9,36 +10,67 @@ from .params import *
 from ..components import save_obj, load_obj, make_tokenizer, train
 
 
+parser = argparse.ArgumentParser(
+        description='Train the biconditional transformer model on diferent datasets')
+parser.add_argument('--new',
+        action='store_true', help='Train model form scratch')
+parser.add_argument('--train-model',
+        action='store_true', help='Train model')
+parser.add_argument('--train-tokenizer',
+        action='store_true', help='Train tokenizer')
+parser.add_argument('--colab',
+        action='store_true', help='Colab environment')
+parser.add_argument('--epochs', default=3, type=int,
+        help='Training epochs')
+parser.add_argument('--batch-size', default=128, type=int,
+        help='Batch size for training')
+parser.add_argument('--max-samples', default=1000000, type=int,
+        help='Max data point to use on dataset')
+parser.add_argument('--buffer-size', default=100000, type=int,
+        help='Buffer size for shuffling')
+parser.add_argument('--eval-percent', default=0.1, type=float,
+        help='Percentage of dataset for evaluation split')
+parser.add_argument('--warmup-steps', default=4000, type=int,
+        help='Warm steps for LR scheduling')
+parser.add_argument('--min-delta', default=0.005, type=float,
+        help='Min delta for early stopping')
+parser.add_argument('--patience', default=5, type=int,
+        help='Patience for early stopping')
+parser.add_argument('--baseline', default=0, type=float,
+        help='Baseline for early stopping')
+parser.add_argument('--corpus',
+        default='friends-corpus, movie-corpus, reddit-corpus-small',
+        type=str, help='Comma separated corpus names')
+args = parser.parse_args()
+
+
 logging.basicConfig(level=logging.INFO)
 tf.random.set_seed(42)
 tf.keras.backend.clear_session()
 
+IS_COLAB = args.colab
 
-IS_TPU = False
+NEW_MODEL = args.new
+TRAIN_MODEL = args.train_model
+TRAIN_TOKENIZER = args.train_tokenizer
 
-NEW_MODEL = True
-TRAIN_MODEL = True
-TRAIN_TOKENIZER = True
-
-CORPUS_NAME = "friends-corpus, movie-corpus, reddit-corpus-small"
+CORPUS_NAME = args.corpus
 
 # Training params
-EPOCHS = 3
-MAX_SAMPLES = 100000
-if IS_TPU:
-    BATCH_SIZE = 128 * tpu_strategy.num_replicas_in_sync
-else:
-    BATCH_SIZE = 256
-BUFFER_SIZE = 100000
-EVAL_PERCENT = 0.05
-WARMUP_STEPS = 2000
-MIN_DELTA = 0.0005
-PATIENCE = 30
-BASELINE = 0
+EPOCHS = args.epochs
+MAX_SAMPLES = args.max_samples
+BATCH_SIZE = args.batch_size
+BUFFER_SIZE = args.buffer_size
+EVAL_PERCENT = args.eval_percent
+WARMUP_STEPS = args.warmup_steps
+MIN_DELTA = args.min_delta
+PATIENCE = args.patience
+BASELINE = args.baseline
 if not BASELINE:
     BASELINE = None
 
 
+IS_TPU = False
 if IS_COLAB:
     from google.colab import output
     try:
