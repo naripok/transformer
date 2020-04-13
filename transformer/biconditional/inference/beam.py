@@ -1,7 +1,8 @@
 import logging
 import tensorflow as tf
 from ..preprocessing import preprocess_sentence
-from ...utils import Beam
+from ...components import Beam
+
 
 logging.basicConfig(level=logging.INFO)
 
