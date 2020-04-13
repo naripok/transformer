@@ -2,58 +2,60 @@ import os
 import datetime
 import logging
 import tensorflow as tf
-from tensorflow_datasets.core.features.text import SubwordTextEncoder
-import pickle
-#  import pandas as pd
-#  import altair as alt
-from .model import *
-from .preprocessing import *
-from .inference import predict_beam, predict_greedy
+from .preprocessing import load_conversations, tokenize_and_filter
+from .inference import predict_greedy, predict_beam
+from .model import transformer, CustomSchedule, loss_function, accuracy
+from .params import *
+from ..utils.serialize import save_obj, load_obj
+from ..utils.train import make_tokenizer, train
+
 
 logging.basicConfig(level=logging.INFO)
-#  alt.renderers.enable('altair_viewer')
+tf.random.set_seed(42)
+tf.keras.backend.clear_session()
 
 
-NEW_MODEL = False  #@param {type:"boolean"}
-TRAIN = False  #@param {type:"boolean"}
-IS_TPU = False  #@param {type:"boolean"}
+IS_TPU = False
+
+NEW_MODEL = False
+TRAIN_MODEL = True
+TRAIN_TOKENIZER = False
+
+CORPUS_NAME = "friends-corpus, movie-corpus, reddit-corpus-small"
 
 # Training params
-EPOCHS = 10 #@param {type:"integer"}
-MAX_SAMPLES = 100000  #@param {type:"integer"}
+EPOCHS = 3
+MAX_SAMPLES = 100000
 if IS_TPU:
     BATCH_SIZE = 128 * tpu_strategy.num_replicas_in_sync
 else:
-    BATCH_SIZE = 32
-BUFFER_SIZE = 5000 #@param {type:"integer"}
-WARMUP_STEPS = 1000  #@param {type:"integer"}
-MIN_DELTA = 0.001 #@param {type:"number"}
-PATIENCE = 10  #@param {type:"integer"}
-BASELINE = 0  #@param {type:"number"}
-EVAL_PERCENT = 0.1  #@param {type:"number"}
+    BATCH_SIZE = 256
+BUFFER_SIZE = 5000
+WARMUP_STEPS = 1000
+MIN_DELTA = 0.001
+PATIENCE = 10
+BASELINE = 0
+EVAL_PERCENT = 0.1
 if not BASELINE:
     BASELINE = None
 
-# tokenizer params
-TARGET_VOCAB_SIZE = 2**13  #@param {type:"raw"}
 
-# Maximum number of samples to preprocess
+if IS_COLAB:
+    from google.colab import output
+    try:
+        with output.use_tags('setup'):
+            #  !pip install convokit
+            #  !python3 -m spacy download en
+            tpu = tf.distribute.cluster_resolver.TPUClusterResolver()  # TPU detection
+            print('Running ovariable_namen TPU ', tpu.cluster_spec().as_dict()['worker'])
+            tf.config.experimental_connect_to_cluster(tpu)
+            tf.tpu.experimental.initialize_tpu_system(tpu)
+            tpu_strategy = tf.distribute.experimental.TPUStrategy(tpu)
+            IS_TPU = True
+        output.clear(output_tags='setup')
 
-# Hyper-parameters
-MAX_LENGTH = 32  #@param {type:"integer"}
-NUM_LAYERS = 2  #@param {type:"integer"}
-D_MODEL = 64  #@param {type:"integer"}
-NUM_HEADS = 8  #@param {type:"integer"}
-UNITS = 128 #@param {type:"integer"}
-DROPOUT = 0.1  #@param {type:"number"}
-
-model_path = "./saved_model/vanilla"  #@param {type:"string"}
-model_weights_path = model_path + '/weights.h5'
-tokenizer_path = model_path + '/saved_tokenizer.pickle'
-log_dir = model_path + '/logs/fit/' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
+    except ValueError:
+        logging.info('Not connected to a TPU runtime')
 
 
 def make_model(
@@ -105,10 +107,7 @@ def make_model(
 
 
 def load_model(model_opts):
-    logging.info('Loading tokenizer.')
-    with open(tokenizer_path, 'rb') as f:
-        tokenizer = pickle.load(f)
-
+    tokenizer = load_obj(tokenizer_path)
     # tokenizer = SubwordTextEncoder.load_from_file(tokenizer_path)
 
     logging.info('Loading model.')
@@ -117,32 +116,6 @@ def load_model(model_opts):
 
     logging.info('Done!')
     return tokenizer, model
-
-#@title Training, Evaluation & Inference Functions
-
-def make_tokenizer(data, target_vocab_size=2**13):
-    logging.info('Training tokenizer...')
-
-    tokenizer = SubwordTextEncoder.build_from_corpus(data,
-            target_vocab_size=target_vocab_size)
-
-    logging.info(f'Target Tokenizer vocab size: {target_vocab_size}')
-    logging.info(f'Tokenizer vocab size: {tokenizer.vocab_size}')
-
-    # save tokenizer
-    logging.info('Saving tokenizer.')
-
-    if not os.path.exists(model_path):
-        os.makedirs(model_path)
-
-    with open(tokenizer_path, 'wb+') as f:
-        pickle.dump(tokenizer, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # tokenizer.save_to_file(tokenizer_path)
-
-    logging.info('Done!')
-
-    return tokenizer
 
 
 def make_dataset(
@@ -156,8 +129,16 @@ def make_dataset(
 
     if not tokenizer:
         tokenizer = make_tokenizer(inputs + outputs, target_vocab_size)
+        logging.info('Saving tokenizer.')
+        save_obj(tokenizer_path, tokenizer)
+        # tokenizer.save_to_file(tokenizer_path)
 
-    inputs, outputs = tokenize_and_filter(tokenizer, inputs, outputs, max_length)
+    inputs, outputs = tokenize_and_filter(
+            tokenizer,
+            inputs,
+            outputs,
+            max_length
+            )
 
     logging.info('Making data set.')
     # decoder inputs use the previous target as input
@@ -173,120 +154,62 @@ def make_dataset(
     ))
 
     dataset = dataset.cache() \
-                    .shuffle(buffer_size) \
+                    .shuffle(
+                            buffer_size,
+                            reshuffle_each_iteration=True) \
                     .batch(batch_size) \
                     .prefetch(tf.data.experimental.AUTOTUNE)
 
     return tokenizer, dataset
 
 
-def train(model, train_data, eval_data, epochs=10, min_delta=0.001,
-          patience=10, baseline=None):
-
-    # reset session
-    #  tf.keras.backend.clear_session()
-
-    def _train(*callbacks):
-        # training callbacks
-        early_stopping = tf.keras.callbacks.EarlyStopping(
-            monitor='loss', min_delta=min_delta,
-            patience=patience, verbose=1,
-            mode='auto', baseline=baseline,
-            restore_best_weights=False
-            )
-        save_weights = tf.keras.callbacks.ModelCheckpoint(
-            model_weights_path, monitor='loss',
-            verbose=0, save_best_only=False,
-            save_weights_only=True, mode='auto',
-            save_freq='epoch'
-        )
-        terminate_on_nan = tf.keras.callbacks.TerminateOnNaN()
-
-        # Create a callback that saves the model's weights
-        logging.info('Training model.')
-        try:
-            model.fit(
-                    train_data,
-                    validation_data=eval_data,
-                    epochs=epochs,
-                    callbacks=[
-                        early_stopping,
-                        terminate_on_nan,
-                        save_weights,
-                        *callbacks
-                        ]
-                    )
-
-        except KeyboardInterrupt:
-            logging.info('\nTraining Interruped!')
-
-        finally:
-            logging.info('Saving model.')
-            model.save_weights(model_weights_path, overwrite=True)
-
-        return model
-
-    history = []
-    if IS_COLAB:
-        with output.use_tags('train'):
-            def lambdaCallback(epoch, logs):
-                history.append(logs)
-                if epoch % 5 == 0:
-                    output.clear(output_tags='train')
-
-            save_history = tf.keras.callbacks.LambdaCallback(
-                on_epoch_end=lambdaCallback
-                )
-            model = _train(save_history)
-    else:
-        def lambdaCallback(epoch, logs):
-            history.append(logs)
-
-        save_history = tf.keras.callbacks.LambdaCallback(
-            on_epoch_end=lambdaCallback
-            )
-        model = _train(save_history)
-
-    return model, history
-
-
 if __name__ == "__main__":
 
-    corpus_name = "friends-corpus, movie-corpus, reddit-corpus-small" #@param {type:"string"}
-
-    train_opts = {
-        'epochs': EPOCHS,
-        'patience': PATIENCE,
-        'min_delta': MIN_DELTA,
-        'baseline': BASELINE
-    }
-
-    dataset_opts = {
-        'batch_size': BATCH_SIZE,
-        'buffer_size': BUFFER_SIZE,
-        'max_length': MAX_LENGTH,
-        'target_vocab_size': TARGET_VOCAB_SIZE
-    }
-
-    model_opts = {
-        'num_layers': NUM_LAYERS,
-        'units': UNITS,
-        'd_model': D_MODEL,
-        'num_heads': NUM_HEADS,
-        'dropout': DROPOUT,
-        'max_length': MAX_LENGTH,
-        'warmup_steps': WARMUP_STEPS,
-    }
-
+    if IS_TPU:
+        BATCH_SIZE = BATCH_SIZE * tpu_strategy.num_replicas_in_sync
+    else:
+        BATCH_SIZE = BATCH_SIZE
 
     if NEW_MODEL:
+
+        train_opts = {
+            'epochs': EPOCHS,
+            'patience': PATIENCE,
+            'min_delta': MIN_DELTA,
+            'baseline': BASELINE
+        }
+
+        dataset_opts = {
+            'batch_size': BATCH_SIZE,
+            'buffer_size': BUFFER_SIZE,
+            'max_length': MAX_LENGTH,
+            'target_vocab_size': TARGET_VOCAB_SIZE
+        }
+
+        model_opts = {
+            'num_layers': NUM_LAYERS,
+            'units': UNITS,
+            'd_model': D_MODEL,
+            'num_heads': NUM_HEADS,
+            'dropout': DROPOUT,
+            'max_length': MAX_LENGTH,
+            'warmup_steps': WARMUP_STEPS,
+        }
+
+        save_obj(model_config_path, model_opts)
+        save_obj(dataset_config_path, dataset_opts)
+        save_obj(train_config_path, train_opts)
+
+        tokenizer = None
+        if not TRAIN_TOKENIZER:
+            tokenizer = load_obj(tokenizer_path)
 
         train_questions = []
         train_answers = []
         eval_questions = []
         eval_answers = []
 
-        for corpus in corpus_name.split(', '):
+        for corpus in CORPUS_NAME.split(', '):
             corpus_tuple = load_conversations(corpus, MAX_SAMPLES, EVAL_PERCENT)
 
             train_questions.extend(corpus_tuple[0])
@@ -313,22 +236,24 @@ if __name__ == "__main__":
 
         model = make_model(tokenizer, **model_opts)
 
-        if TRAIN:
-            model, history = train(model, train_data,
-                                   eval_data, **train_opts)
+        if TRAIN_MODEL:
+            model = train(model, train_data,
+                    eval_data, **train_opts,
+                    save_path=model_weights_path)
     else:
+        train_opts = load_obj(train_config_path)
+        dataset_opts = load_obj(dataset_config_path)
+        model_opts = load_obj(model_config_path)
         tokenizer, model = load_model(model_opts)
 
-        if TRAIN:
+        if TRAIN_MODEL:
 
             train_questions = []
             train_answers = []
             eval_questions = []
             eval_answers = []
-
-            for corpus in corpus_name.split(', '):
+            for corpus in CORPUS_NAME.split(', '):
                 corpus_tuple = load_conversations(corpus, MAX_SAMPLES, EVAL_PERCENT)
-
                 train_questions.extend(corpus_tuple[0])
                 train_answers.extend(corpus_tuple[1])
                 eval_questions.extend(corpus_tuple[2])
@@ -350,25 +275,15 @@ if __name__ == "__main__":
                 tokenizer,
                 **dataset_opts)
 
-            model, history = train(model, train_data,
-                                   eval_data, **train_opts)
+            model = train(model, train_data,
+                    eval_data, **train_opts,
+                    save_path=model_weights_path)
 
             model.summary()
 
-            #  hist_df = pd.DataFrame.from_records(history)
-            #  hist_df['epoch'] = [i for i in range(len(history))]
-            #  
-            #  graphs = ['loss', 'val_loss', '_accuracy', 'val__accuracy']
-            #  def make_graph(y):
-            #      return alt.Chart(hist_df).mark_point().encode(
-            #          x='epoch',
-            #          y=y,
-            #      ).properties(
-            #          width=360,
-            #          height=360
-            #      )
-            #  
-            #  alt.hconcat(*[make_graph(y) for y in graphs]).show()
+    for you in ['am I dead?', 'What is the matrix?', "I thought it wasn't real"]:
+        prediction = predict_greedy(tokenizer, model, you)
+        print(f'transformer: {prediction}')
 
     you = "what is your name?"
     print(f'you: {you}')

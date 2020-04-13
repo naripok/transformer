@@ -5,12 +5,11 @@ from tqdm import tqdm
 import tensorflow as tf
 import convokit
 from convokit import Corpus, download
-#  import nltk; nltk.download('punkt')
+import nltk; nltk.download('punkt')
+from ..utils.preprocessing import preprocess_sentence
 
 
 def tokenize_and_filter(tokenizer, inputs, outputs, max_length=32):
-    # Tokenize, filter and pad sentences
-
     # Define start and end token to indicate the start and end of a sentence
     START_TOKEN, END_TOKEN = [tokenizer.vocab_size], [tokenizer.vocab_size + 1]
 
@@ -36,19 +35,6 @@ def tokenize_and_filter(tokenizer, inputs, outputs, max_length=32):
     logging.info('Done!')
 
     return tokenized_inputs, tokenized_outputs
-
-
-def preprocess_sentence(sentence):
-    sentence = sentence.lower().strip()
-    # creating a space between a word and the punctuation following it
-    # eg: "he is a boy." => "he is a boy ."
-    sentence = re.sub(r'([?.!,])', r' \1 ', sentence)
-    sentence = re.sub(r'[" "]+', ' ', sentence)
-    # replacing everything with space except (a-z, A-Z, ".", "?", "!", ",")
-    sentence = re.sub(r'[^a-zA-Z?.!,]+', ' ', sentence)
-    sentence = sentence.strip()
-    # adding a start and an end token to the sentence
-    return sentence
 
 
 def load_conversations(corpus_name, max_samples, eval_percent=0.1):
