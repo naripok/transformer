@@ -1,23 +1,7 @@
 import os
 import datetime
 
-IS_COLAB = False
-
-# tokenizer params
-TARGET_VOCAB_SIZE = 2**13
-
-# Maximum number of samples to preprocess
-MAX_LENGTH = 32
-
-# Hyper-parameters
-NUM_LAYERS = 2
-D_MODEL = 128
-NUM_HEADS = 8
-UNITS = 128
-DROPOUT = 0.1
-
-
-if IS_COLAB:
+if os.environ.get('IS_COLAB', False):
     model_path = "/content/drive/My Drive/saved_model"
 else:
     model_path = "./saved_model/biconditional"

@@ -11,7 +11,7 @@ from ..components import save_obj, load_obj, make_tokenizer, train
 
 
 parser = argparse.ArgumentParser(
-        description='Train the biconditional transformer model on diferent datasets')
+        description='Train the vanilla transformer model on diferent datasets')
 parser.add_argument('--new',
         action='store_true', help='Train model form scratch')
 parser.add_argument('--train-model',
@@ -41,6 +41,20 @@ parser.add_argument('--baseline', default=0, type=float,
 parser.add_argument('--corpus',
         default='friends-corpus, movie-corpus, reddit-corpus-small',
         type=str, help='Comma separated corpus names')
+parser.add_argument('--vocab-size', default=2**13, type=float,
+        help='Target vocabulary size')
+parser.add_argument('--max-length', default=32, type=int,
+        help='Max sentence length to process')
+parser.add_argument('--dropout', default=0.1, type=float,
+        help='Training dropout normalization')
+parser.add_argument('--units', default=256, type=int,
+        help='Hidden units')
+parser.add_argument('--num-layers', default=2, type=int,
+        help='Num layers')
+parser.add_argument('--num-heads', default=8, type=int,
+        help='Num attention heads ')
+parser.add_argument('--d-model', default=256, type=int,
+        help='Dense model')
 args = parser.parse_args()
 
 
@@ -68,6 +82,19 @@ PATIENCE = args.patience
 BASELINE = args.baseline
 if not BASELINE:
     BASELINE = None
+
+# tokenizer params
+TARGET_VOCAB_SIZE = args.vocab_size
+
+# Maximum number of samples to preprocess
+MAX_LENGTH = args.max_length
+
+# Hyper-parameters
+NUM_LAYERS = args.num_layers
+D_MODEL = args.d_model
+NUM_HEADS = args.num_heads
+UNITS = args.units
+DROPOUT = args.dropout
 
 
 IS_TPU = False
