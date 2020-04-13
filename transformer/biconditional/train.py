@@ -18,8 +18,6 @@ parser.add_argument('--train-model',
         action='store_true', help='Train model')
 parser.add_argument('--train-tokenizer',
         action='store_true', help='Train tokenizer')
-parser.add_argument('--colab',
-        action='store_true', help='Colab environment')
 parser.add_argument('--epochs', default=3, type=int,
         help='Training epochs')
 parser.add_argument('--batch-size', default=128, type=int,
@@ -62,8 +60,6 @@ logging.basicConfig(level=logging.INFO)
 tf.random.set_seed(42)
 tf.keras.backend.clear_session()
 
-IS_COLAB = args.colab
-
 NEW_MODEL = args.new
 TRAIN_MODEL = args.train_model
 TRAIN_TOKENIZER = args.train_tokenizer
@@ -98,7 +94,7 @@ DROPOUT = args.dropout
 
 
 IS_TPU = False
-if IS_COLAB:
+if os.environ.get('IS_COLAB', False):
     from google.colab import output
     try:
         with output.use_tags('setup'):
