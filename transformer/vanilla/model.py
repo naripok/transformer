@@ -12,36 +12,8 @@ Reference:
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-IS_COLAB = False
-
-if IS_COLAB:
-    from google.colab import drive
-    drive.mount('/content/drive', force_remount=True)
-
 import logging
 import tensorflow as tf
-
-tf.keras.backend.clear_session()
-tf.random.set_seed(42)
-
-
-IS_TPU = False
-if IS_COLAB:
-    from google.colab import output
-    try:
-        with output.use_tags('setup'):
-            #  !pip install convokit
-            #  !python3 -m spacy download en
-            tpu = tf.distribute.cluster_resolver.TPUClusterResolver()  # TPU detection
-            print('Running ovariable_namen TPU ', tpu.cluster_spec().as_dict()['worker'])
-            tf.config.experimental_connect_to_cluster(tpu)
-            tf.tpu.experimental.initialize_tpu_system(tpu)
-            tpu_strategy = tf.distribute.experimental.TPUStrategy(tpu)
-            IS_TPU = True
-        output.clear(output_tags='setup')
-
-    except ValueError:
-        logging.info('Not connected to a TPU runtime')
 
 
 def scaled_dot_product_attention(query, key, value, mask):

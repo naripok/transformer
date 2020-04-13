@@ -18,9 +18,9 @@ DROPOUT = 0.1
 
 
 if IS_COLAB:
-    model_path = "/content/drive/My Drive/discordbot/saved_model"  #@param {type:"string"}
+    model_path = "/content/drive/My Drive/discordbot/saved_model"
 else:
-    model_path = "./saved_model/biconditional"  #@param {type:"string"}
+    model_path = "./saved_model/biconditional"
 
 if not os.path.exists(model_path):
     os.makedirs(model_path)
