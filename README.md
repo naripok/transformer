@@ -15,8 +15,8 @@ preprocessing.
 
 After installing the package, you can run the training with the commands:
 
-```python -m src.biconditional.train```  
-```python -m src.vanilla.train```
+```python -m src.biconditional.train --new --train-model --train-tokenizer```  
+```python -m src.vanilla.train --new --train-model --train-tokenizer```
 
 
 ## Interacting with the models
