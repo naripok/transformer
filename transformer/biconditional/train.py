@@ -17,9 +17,9 @@ tf.keras.backend.clear_session()
 
 IS_TPU = False
 
-NEW_MODEL = False
+NEW_MODEL = True
 TRAIN_MODEL = True
-TRAIN_TOKENIZER = False
+TRAIN_TOKENIZER = True
 
 CORPUS_NAME = "friends-corpus, movie-corpus, reddit-corpus-small"
 
@@ -304,10 +304,10 @@ if __name__ == "__main__":
 
     context = 'Welcome to the desert of the real.'
     for you in ['am I dead?', 'What is the matrix?', "I thought it wasn't real"]:
-        prediction = context = predict_greedy(tokenizer, model, you, context)
+        prediction = context = predict_greedy(tokenizer, model, you, context, max_length=MAX_LENGTH)
         print(f'transformer: {prediction}')
 
     #@title Self Context
-    you = "are we dead?" #@param {type:"string"}
-    prediction = context = predict_beam(tokenizer, model, you, context)
+    you = "are we dead?"
+    prediction = context = predict_beam(tokenizer, model, you, context, max_length=MAX_LENGTH)
     print(f'transformer: {prediction}')

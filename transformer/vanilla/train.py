@@ -17,9 +17,9 @@ tf.keras.backend.clear_session()
 
 IS_TPU = False
 
-NEW_MODEL = False
+NEW_MODEL = True
 TRAIN_MODEL = True
-TRAIN_TOKENIZER = False
+TRAIN_TOKENIZER = True
 
 CORPUS_NAME = "friends-corpus, movie-corpus, reddit-corpus-small"
 
@@ -282,9 +282,9 @@ if __name__ == "__main__":
             model.summary()
 
     for you in ['am I dead?', 'What is the matrix?', "I thought it wasn't real"]:
-        prediction = predict_greedy(tokenizer, model, you)
+        prediction = predict_greedy(tokenizer, model, you, max_length=MAX_LENGTH)
         print(f'transformer: {prediction}')
 
     you = "what is your name?"
     print(f'you: {you}')
-    print(f'transformer: {predict_beam(tokenizer, model, you)}')
+    print(f'transformer: {predict_beam(tokenizer, model, you, max_length=MAX_LENGTH)}')
