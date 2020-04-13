@@ -2,7 +2,7 @@ import os
 import datetime
 
 if os.environ.get('IS_COLAB', False):
-    model_path = "/content/drive/My Drive/saved_model"
+    model_path = "/content/drive/My Drive/saved_model/biconditional"
 else:
     model_path = "./saved_model/biconditional"
 

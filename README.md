@@ -15,8 +15,23 @@ preprocessing.
 
 After installing the package, you can run the training with the commands:
 
-```python -m src.biconditional.train```  
-```python -m src.vanilla.train```
+```python -m src.biconditional.train --new --train-model --train-tokenizer```  
+```python -m src.vanilla.train --new --train-model --train-tokenizer```
+
+If on colab environment, you can leverage the TPU cluster for distributed training.
+Install the packages:
+
+```
+!pip install convokit
+!python3 -m spacy download en
+!pip install git+https://github.com/naripok/transformer.git@release-0.0.5
+```
+
+Then, activate the TPU environment on the notebook settings
+and set IS_COLAB env var to True before running the trainin stript, like so:
+
+```!export IS_COLAB=True && python -m src.biconditional.train --new --train-model --train-tokenizer```  
+```!export IS_COLAB=True && python -m src.vanilla.train --new --train-model --train-tokenizer```
 
 
 ## Interacting with the models
