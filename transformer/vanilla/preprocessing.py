@@ -6,7 +6,7 @@ import tensorflow as tf
 import convokit
 from convokit import Corpus, download
 import nltk; nltk.download('punkt')
-from ..utils.preprocessing import preprocess_sentence
+from ..components import preprocess_sentence
 
 
 def tokenize_and_filter(tokenizer, inputs, outputs, max_length=32):

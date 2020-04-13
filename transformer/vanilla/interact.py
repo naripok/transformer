@@ -5,7 +5,7 @@ from .inference import predict_greedy, predict_beam
 from .train import load_model
 from .model import *
 from .params import *
-from ..utils.serialize import load_obj
+from ..components import load_obj
 
 
 logging.basicConfig(level=logging.INFO)

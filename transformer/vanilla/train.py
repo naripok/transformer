@@ -6,8 +6,7 @@ from .preprocessing import load_conversations, tokenize_and_filter
 from .inference import predict_greedy, predict_beam
 from .model import transformer, CustomSchedule, loss_function, accuracy
 from .params import *
-from ..utils.serialize import save_obj, load_obj
-from ..utils.train import make_tokenizer, train
+from ..components import save_obj, load_obj, make_tokenizer, train
 
 
 logging.basicConfig(level=logging.INFO)

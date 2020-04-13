@@ -2,7 +2,7 @@ import os
 import logging
 import tensorflow as tf
 from tensorflow_datasets.core.features.text import SubwordTextEncoder
-from .serialize import save_obj, load_obj
+from .serialization import save_obj, load_obj
 
 
 def make_tokenizer(data, target_vocab_size=2**13):
