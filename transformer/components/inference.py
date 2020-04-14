@@ -75,21 +75,21 @@ class Beam(object):
 
         return leaves
 
-    def process_hypotheses(self, length_penalty):
+    def process_hypotheses(self, alpha):
         return [{
             'path': tf.squeeze(h['path'], axis=0),
             'score': tf.squeeze(tf.math.divide(
                 h['score'][:, -1],
-                tf.pow(h['score'].shape[-1], tf.constant(length_penalty))
+                tf.pow(h['score'].shape[-1], tf.constant(alpha))
                 ), axis=0)
             } for h in self.hypotheses]
 
-    def run(self, inputs, max_hypothesis=8, max_depth=32, length_penalty=0.7):
+    def run(self, inputs, max_hypothesis=8, max_depth=32, alpha=0.7):
 
         while self.leaves and self._step <= max_depth:
             self.step(inputs, max_hypothesis)
 
-        return sorted(self.process_hypotheses(length_penalty),
+        return sorted(self.process_hypotheses(alpha),
             key=lambda h: h['score'],
             reverse=True
             )[:max_hypothesis]
