@@ -10,87 +10,9 @@ from .params import *
 from ..components import save_obj, load_obj, make_tokenizer, train
 
 
-parser = argparse.ArgumentParser(
-        description='Train the vanilla transformer model on diferent datasets')
-parser.add_argument('--new',
-        action='store_true', help='Train model form scratch')
-parser.add_argument('--train-model',
-        action='store_true', help='Train model')
-parser.add_argument('--train-tokenizer',
-        action='store_true', help='Train tokenizer')
-parser.add_argument('--epochs', default=3, type=int,
-        help='Training epochs')
-parser.add_argument('--batch-size', default=128, type=int,
-        help='Batch size for training')
-parser.add_argument('--max-samples', default=1000000, type=int,
-        help='Max data point to use on dataset')
-parser.add_argument('--buffer-size', default=100000, type=int,
-        help='Buffer size for shuffling')
-parser.add_argument('--eval-percent', default=0.1, type=float,
-        help='Percentage of dataset for evaluation split')
-parser.add_argument('--warmup-steps', default=4000, type=int,
-        help='Warm steps for LR scheduling')
-parser.add_argument('--min-delta', default=0.005, type=float,
-        help='Min delta for early stopping')
-parser.add_argument('--patience', default=5, type=int,
-        help='Patience for early stopping')
-parser.add_argument('--baseline', default=0, type=float,
-        help='Baseline for early stopping')
-parser.add_argument('--corpus',
-        default='friends-corpus, movie-corpus, reddit-corpus-small',
-        type=str, help='Comma separated corpus names')
-parser.add_argument('--vocab-size', default=2**13, type=float,
-        help='Target vocabulary size')
-parser.add_argument('--max-length', default=32, type=int,
-        help='Max sentence length to process')
-parser.add_argument('--dropout', default=0.1, type=float,
-        help='Training dropout normalization')
-parser.add_argument('--units', default=256, type=int,
-        help='Hidden units')
-parser.add_argument('--num-layers', default=2, type=int,
-        help='Num layers')
-parser.add_argument('--num-heads', default=8, type=int,
-        help='Num attention heads ')
-parser.add_argument('--d-model', default=256, type=int,
-        help='Dense model')
-args = parser.parse_args()
-
-
 logging.basicConfig(level=logging.INFO)
 tf.random.set_seed(42)
 tf.keras.backend.clear_session()
-
-NEW_MODEL = args.new
-TRAIN_MODEL = args.train_model
-TRAIN_TOKENIZER = args.train_tokenizer
-
-CORPUS_NAME = args.corpus
-
-# Training params
-EPOCHS = args.epochs
-MAX_SAMPLES = args.max_samples
-BATCH_SIZE = args.batch_size
-BUFFER_SIZE = args.buffer_size
-EVAL_PERCENT = args.eval_percent
-WARMUP_STEPS = args.warmup_steps
-MIN_DELTA = args.min_delta
-PATIENCE = args.patience
-BASELINE = args.baseline
-if not BASELINE:
-    BASELINE = None
-
-# tokenizer params
-TARGET_VOCAB_SIZE = args.vocab_size
-
-# Maximum number of samples to preprocess
-MAX_LENGTH = args.max_length
-
-# Hyper-parameters
-NUM_LAYERS = args.num_layers
-D_MODEL = args.d_model
-NUM_HEADS = args.num_heads
-UNITS = args.units
-DROPOUT = args.dropout
 
 
 IS_TPU = False
@@ -220,6 +142,84 @@ def make_dataset(
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(
+            description='Train the vanilla transformer model on diferent datasets')
+    parser.add_argument('--new',
+            action='store_true', help='Train model form scratch')
+    parser.add_argument('--train-model',
+            action='store_true', help='Train model')
+    parser.add_argument('--train-tokenizer',
+            action='store_true', help='Train tokenizer')
+    parser.add_argument('--epochs', default=3, type=int,
+            help='Training epochs')
+    parser.add_argument('--batch-size', default=128, type=int,
+            help='Batch size for training')
+    parser.add_argument('--max-samples', default=1000000, type=int,
+            help='Max data point to use on dataset')
+    parser.add_argument('--buffer-size', default=100000, type=int,
+            help='Buffer size for shuffling')
+    parser.add_argument('--eval-percent', default=0.1, type=float,
+            help='Percentage of dataset for evaluation split')
+    parser.add_argument('--warmup-steps', default=4000, type=int,
+            help='Warm steps for LR scheduling')
+    parser.add_argument('--min-delta', default=0.005, type=float,
+            help='Min delta for early stopping')
+    parser.add_argument('--patience', default=5, type=int,
+            help='Patience for early stopping')
+    parser.add_argument('--baseline', default=0, type=float,
+            help='Baseline for early stopping')
+    parser.add_argument('--corpus',
+            default='friends-corpus, movie-corpus, reddit-corpus-small',
+            type=str, help='Comma separated corpus names')
+    parser.add_argument('--vocab-size', default=2**13, type=float,
+            help='Target vocabulary size')
+    parser.add_argument('--max-length', default=32, type=int,
+            help='Max sentence length to process')
+    parser.add_argument('--dropout', default=0.1, type=float,
+            help='Training dropout normalization')
+    parser.add_argument('--units', default=256, type=int,
+            help='Hidden units')
+    parser.add_argument('--num-layers', default=2, type=int,
+            help='Num layers')
+    parser.add_argument('--num-heads', default=8, type=int,
+            help='Num attention heads ')
+    parser.add_argument('--d-model', default=256, type=int,
+            help='Dense model')
+    args = parser.parse_args()
+
+
+    NEW_MODEL = args.new
+    TRAIN_MODEL = args.train_model
+    TRAIN_TOKENIZER = args.train_tokenizer
+
+    CORPUS_NAME = args.corpus
+
+    # Training params
+    EPOCHS = args.epochs
+    MAX_SAMPLES = args.max_samples
+    BATCH_SIZE = args.batch_size
+    BUFFER_SIZE = args.buffer_size
+    EVAL_PERCENT = args.eval_percent
+    WARMUP_STEPS = args.warmup_steps
+    MIN_DELTA = args.min_delta
+    PATIENCE = args.patience
+    BASELINE = args.baseline
+    if not BASELINE:
+        BASELINE = None
+
+    # tokenizer params
+    TARGET_VOCAB_SIZE = args.vocab_size
+
+    # Maximum number of samples to preprocess
+    MAX_LENGTH = args.max_length
+
+    # Hyper-parameters
+    NUM_LAYERS = args.num_layers
+    D_MODEL = args.d_model
+    NUM_HEADS = args.num_heads
+    UNITS = args.units
+    DROPOUT = args.dropout
 
     if IS_TPU:
         BATCH_SIZE = BATCH_SIZE * tpu_strategy.num_replicas_in_sync
